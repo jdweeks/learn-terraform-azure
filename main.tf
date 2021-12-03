@@ -1,6 +1,10 @@
 # Configure the Microsoft Azure Provider.
 terraform {
   required_providers {
+    random = {
+      source  = "hashicorp/random"
+      version = "3.0.1"
+    }
     azurerm = {
       source  = "hashicorp/azurerm"
       version = ">= 2.26"
@@ -12,13 +16,18 @@ terraform {
 
 provider "azurerm" {
   features {}
+  skip_provider_registration = true
 }
 
-# Create a resource group
-resource "azurerm_resource_group" "rg" {
-  name     = "${var.prefix}TFRG"
-  location = var.location
-  tags     = var.tags
+provider "random" {}
+
+resource "random_password" "password" {
+  length  = 16
+  special = true
+}
+
+data "azurerm_resource_group" "rg" {
+  name = var.resource_group
 }
 
 # Create virtual network
@@ -26,14 +35,14 @@ resource "azurerm_virtual_network" "vnet" {
   name                = "${var.prefix}TFVnet"
   address_space       = ["10.0.0.0/16"]
   location            = var.location
-  resource_group_name = azurerm_resource_group.rg.name
+  resource_group_name = data.azurerm_resource_group.rg.name
   tags                = var.tags
 }
 
 # Create subnet
 resource "azurerm_subnet" "subnet" {
   name                 = "${var.prefix}TFSubnet"
-  resource_group_name  = azurerm_resource_group.rg.name
+  resource_group_name  = data.azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = ["10.0.1.0/24"]
 }
@@ -42,7 +51,7 @@ resource "azurerm_subnet" "subnet" {
 resource "azurerm_public_ip" "publicip" {
   name                = "${var.prefix}TFPublicIP"
   location            = var.location
-  resource_group_name = azurerm_resource_group.rg.name
+  resource_group_name = data.azurerm_resource_group.rg.name
   allocation_method   = "Dynamic"
   tags                = var.tags
 }
@@ -51,7 +60,7 @@ resource "azurerm_public_ip" "publicip" {
 resource "azurerm_network_security_group" "nsg" {
   name                = "${var.prefix}TFNSG"
   location            = var.location
-  resource_group_name = azurerm_resource_group.rg.name
+  resource_group_name = data.azurerm_resource_group.rg.name
   tags                = var.tags
 
   security_rule {
@@ -71,7 +80,7 @@ resource "azurerm_network_security_group" "nsg" {
 resource "azurerm_network_interface" "nic" {
   name                = "${var.prefix}NIC"
   location            = var.location
-  resource_group_name = azurerm_resource_group.rg.name
+  resource_group_name = data.azurerm_resource_group.rg.name
   tags                = var.tags
 
   ip_configuration {
@@ -86,7 +95,7 @@ resource "azurerm_network_interface" "nic" {
 resource "azurerm_virtual_machine" "vm" {
   name                  = "${var.prefix}TFVM"
   location              = var.location
-  resource_group_name   = azurerm_resource_group.rg.name
+  resource_group_name   = data.azurerm_resource_group.rg.name
   network_interface_ids = [azurerm_network_interface.nic.id]
   vm_size               = "Standard_DS1_v2"
   tags                  = var.tags
@@ -108,7 +117,7 @@ resource "azurerm_virtual_machine" "vm" {
   os_profile {
     computer_name  = "${var.prefix}TFVM"
     admin_username = var.admin_username
-    admin_password = var.admin_password
+    admin_password = random_password.password.result
   }
 
   os_profile_linux_config {
@@ -120,7 +129,7 @@ resource "azurerm_virtual_machine" "vm" {
 data "azurerm_public_ip" "ip" {
   name                = azurerm_public_ip.publicip.name
   resource_group_name = azurerm_virtual_machine.vm.resource_group_name
-  depends_on          = ["azurerm_virtual_machine.vm"]
+  depends_on          = [azurerm_virtual_machine.vm]
 }
 
 output "os_sku" {

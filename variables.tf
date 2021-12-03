@@ -1,13 +1,12 @@
 variable "location" {}
 
+variable "resource_group" {
+  type = string
+}
+
 variable "admin_username" {
   type        = string
   description = "Administrator user name for virtual machine"
-}
-
-variable "admin_password" {
-  type        = string
-  description = "Password must meet Azure complexity requirements"
 }
 
 variable "prefix" {
@@ -16,7 +15,7 @@ variable "prefix" {
 }
 
 variable "tags" {
-  type = map
+  type = map(any)
 
   default = {
     Environment = "Terraform GS"
