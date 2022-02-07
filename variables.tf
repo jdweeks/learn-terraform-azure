@@ -1,5 +1,3 @@
-variable "location" {}
-
 variable "resource_group" {
   type = string
 }
@@ -23,9 +21,10 @@ variable "tags" {
   }
 }
 
-variable "sku" {
+variable "vm_sku" {
   default = {
     westus2 = "16.04-LTS"
     eastus  = "18.04-LTS"
+    centralus  = "18.04-LTS"
   }
 }
